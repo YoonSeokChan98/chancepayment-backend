@@ -3,6 +3,7 @@ import db from './models/index.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRouter from './router/user.js';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 const app = express();
@@ -16,11 +17,10 @@ app.use(
         credentials: true, // 인증 정보를 포함할지 여부
     })
 );
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
 // 간단한 테스트 라우트
-// app.use('/', (req, res) => {
-//     res.send('server on'); // 로그인 할 때 백에서 프론트로 이거 왜 보냄...?
-// });
 app.get('/ping', (req, res) => {
     res.send('pong');
 });

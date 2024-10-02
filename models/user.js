@@ -9,6 +9,10 @@ const UserModel = (sequelize) => {
             primaryKey: true,
             autoIncrement: true,
         },
+        username: {
+            type: DataTypes.STRING(20),
+            allowNull: true, // 빈값을 허용해줌
+        },
         email: {
             type: DataTypes.STRING,
             allowNull: false, // null값을 허용해줄 것인가: false = 빈값을 허용해줄 것인가: 아니요
@@ -17,10 +21,6 @@ const UserModel = (sequelize) => {
         password: {
             type: DataTypes.STRING,
             allowNull: false,
-        },
-        nickname: {
-            type: DataTypes.STRING(20),
-            allowNull: true, // 빈값을 허용해줌
         },
     });
 };

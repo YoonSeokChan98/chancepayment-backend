@@ -6,8 +6,8 @@ const User = db.User;
 // 회원가입
 export const signup = async (req, res) => {
     try {
-        // console.log('회원가입 - req.body', req.body);
-        const { username, email, password } = req.body;
+        console.log('회원가입 - req.body', req.body);
+        const { email, password } = req.body;
 
         const find = await User.findOne({ where: { email } });
         if (find) {
@@ -16,7 +16,6 @@ export const signup = async (req, res) => {
             // 암호화
             const encryption = await bcrypt.hash(password, 10);
             const result = await User.create({
-                username,
                 email,
                 password: encryption,
             });
@@ -43,19 +42,35 @@ export const login = async (req, res) => {
             if (decryption) {
                 const response = {
                     id: find.id,
-                    username: find.username,
                     email: find.email,
                 };
 
-                // toke 발급
-                const token = jwt.sign({ user: response }, process.env.JWT_ACCESS_SECRET, {
+                // Access Token 발급
+                const accessToken = jwt.sign({ user: response }, process.env.JWT_ACCESS_SECRET, {
                     expiresIn: process.env.JWT_ACCESS_LIFETIME, // 일반적으로 짧게 (15분 정도)
                 });
+
+                // Refresh Token 발급
+                const refreshToken = jwt.sign({ user: response }, process.env.JWT_REFRESH_SECRET, {
+                    expiresIn: process.env.JWT_REFRESH_LIFETIME, // 일반적으로 길게 (7일 또는 30일)
+                });
+
+                // 쿠키에 액세스 토큰 설정
+                res.cookie('accessToken', accessToken, {
+                    httpOnly: true, // JavaScript에서 접근 불가
+                    secure: true, // HTTPS에서만 전송
+                    sameSite: 'Strict', // CSRF 공격 방지
+                    maxAge: 15 * 60 * 1000, // 쿠키 만료 시간 (15분)
+                });
+
+                // Refresh Token을 DB에 저장
+                await User.update({ refreshToken }, { where: { id: find.id } });
 
                 res.status(200).json({
                     code: 200,
                     message: '로그인 성공. 토큰이 발급되었습니다.',
-                    token: token,
+                    // accessToken: accessToken, // Access Token
+                    // refreshToken, // Refresh Token
                     response: response, // 사용자 정보
                 });
             } else {
@@ -76,7 +91,7 @@ export const logout = async (req, res) => {
         const { userId } = req; // 로그인한 사용자 ID
 
         // 데이터베이스에서 리프레시 토큰 삭제
-        // await User.update({ refreshToken: null }, { where: { id: userId } });
+        await User.update({ refreshToken: null }, { where: { id: userId } });
 
         // 쿠키에서 액세스 토큰 삭제
         res.cookie('accessToken', '', {
@@ -91,38 +106,4 @@ export const logout = async (req, res) => {
         console.log('로그아웃 오류: ', error);
         res.status(500).json({ result: false, message: '서버오류' });
     }
-};
-
-export const refreshToken = async (req, res) => {
-    const { token, userInfo } = req.body;
-    // console.log('headers', req.headers);
-    // console.log('body', req.body);
-    // console.log('refreshToken-token', token);
-    // console.log('refreshToken-userInfo', userInfo);
-    // 현재 접속한 유저와 db에 있는 유저를 비교하고 서로 맞다면 토큰을 재발급해줌
-    // 그게 아니라면 발급을 해주지 않음
-    try {
-        const find = await User.findOne({ where: { email: userInfo.email } });
-        if (!find) {
-            return res.status(404).json({ result: false, message: '유저 정보가 없습니다.' });
-        }
-        const newToken = jwt.sign({ user: userInfo }, process.env.JWT_ACCESS_SECRET, {
-            expiresIn: process.env.JWT_ACCESS_LIFETIME,
-        });
-        res.status(200).json({
-            code: 200,
-            message: '새로운 토큰이 발급되었습니다.',
-            userInfo: userInfo,
-            token: newToken,
-        });
-    } catch (error) {
-        console.error('리프레시 토큰 오류: ', error);
-        res.status(500).json({ result: false, message: '서버오류' });
-    }
-};
-
-export const tokenCheck = async (req, res) => {
-    const { token, userInfo } = req.body;
-    console.log('token', token);
-    console.log('userInfo', userInfo);
 };
